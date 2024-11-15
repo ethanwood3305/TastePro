@@ -1,6 +1,16 @@
 // api/create-checkout-session.js
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import cors from "cors";
+
+const corsOptions = {
+  origin: "https://darkseagreen-kangaroo-762474.hostingersite.com",
+  methods: ["POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+export default cors(corsOptions)(handler);
+
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLIC_ANON_KEY);
