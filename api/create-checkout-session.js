@@ -1,36 +1,35 @@
-// api/create-checkout-session.js
-import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
-
+const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-export default async function handler(req, res) {
-  if (req.method === "POST") {
-    const { priceId, userId } = req.body;
-
-    try {
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        mode: "subscription",
-        success_url: "https://yourdomain.com/dashboard",
-        cancel_url: "https://yourdomain.com/subscribe",
-        metadata: { userId },
-      });
-
-      res.json({ id: session.id });
-    } catch (error) {
-      console.error("Error creating checkout session:", error.message);
-      res.status(500).json({ error: error.message });
-    }
-  } else {
-    res.setHeader("Allow", ["POST"]);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+exports.handler = async function (event) {
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: `Method not allowed: ${event.httpMethod}` }),
+    };
   }
-}
+
+  try {
+    const { priceId, userId } = JSON.parse(event.body);
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: "subscription",
+      success_url: `${process.env.FRONTEND_URL}/dashboard`,
+      cancel_url: `${process.env.FRONTEND_URL}/subscribe`,
+      metadata: { userId },
+    });
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ id: session.id }),
+    };
+  } catch (error) {
+    console.error("Stripe error:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Internal Server Error" }),
+    };
+  }
+};
