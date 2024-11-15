@@ -2,35 +2,46 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLIC_ANON_KEY);
 
 export default async function handler(req, res) {
-  if (req.method === "POST") {
-    const { priceId, userId } = req.body;
+  // Set CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "https://darkseagreen-kangaroo-762474.hostingersite.com");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-    try {
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        mode: "subscription",
-        success_url: "https://yourdomain.com/dashboard",
-        cancel_url: "https://yourdomain.com/subscribe",
-        metadata: { userId },
-      });
+  if (req.method === "OPTIONS") {
+    // Handle preflight requests
+    res.status(200).end();
+    return;
+  }
 
-      res.json({ id: session.id });
-    } catch (error) {
-      console.error("Error creating checkout session:", error.message);
-      res.status(500).json({ error: error.message });
-    }
-  } else {
-    res.setHeader("Allow", ["POST"]);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST", "OPTIONS"]);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+
+  const { priceId, userId } = req.body;
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: "subscription",
+      success_url: `${process.env.FRONTEND_URL}/dashboard`,
+      cancel_url: `${process.env.FRONTEND_URL}/subscribe`,
+      metadata: { userId },
+    });
+
+    res.json({ id: session.id });
+  } catch (error) {
+    console.error("Error creating checkout session:", error.message);
+    res.status(500).json({ error: error.message });
   }
 }
