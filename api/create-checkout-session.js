@@ -1,11 +1,29 @@
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-exports.handler = async function (event) {
+exports.handler = async function (event, context) {
+  // Set CORS headers
+  const headers = {
+    "Access-Control-Allow-Origin": "https://darkseagreen-kangaroo-762474.hostingersite.com", // Replace with your frontend's URL
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+
+  // Handle preflight OPTIONS request
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers,
+      body: "OK",
+    };
+  }
+
+  // Handle POST requests
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      body: JSON.stringify({ error: `Method not allowed: ${event.httpMethod}` }),
+      headers,
+      body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
 
@@ -23,12 +41,14 @@ exports.handler = async function (event) {
 
     return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({ id: session.id }),
     };
   } catch (error) {
     console.error("Stripe error:", error);
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({ error: "Internal Server Error" }),
     };
   }
