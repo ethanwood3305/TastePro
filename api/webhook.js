@@ -9,7 +9,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 exports.handler = async function (event) {
   const headers = {
-    "Access-Control-Allow-Origin": "*", // Adjust as needed
+    "Access-Control-Allow-Origin": "https://darkseagreen-kangaroo-762474.hostingersite.com", // Adjust as needed
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Stripe-Signature",
   };
