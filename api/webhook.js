@@ -1,9 +1,10 @@
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-exports.handler = async function (event, context) {
+exports.handler = async function (event) {
+  const sig = event.headers["stripe-signature"];
   const headers = {
-    "Access-Control-Allow-Origin": "*", // Adjust for your frontend URL
+    "Access-Control-Allow-Origin": "*", // Adjust as needed
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Stripe-Signature",
   };
@@ -16,24 +17,26 @@ exports.handler = async function (event, context) {
     };
   }
 
-  const sig = event.headers["stripe-signature"];
   let stripeEvent;
 
   try {
+    // Pass the raw body for Stripe signature verification
     stripeEvent = stripe.webhooks.constructEvent(
-      event.body,
+      event.body, // RAW body
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
     console.error("Webhook signature verification failed:", err.message);
-    return { statusCode: 400, body: `Webhook Error: ${err.message}` };
+    return { statusCode: 400, headers, body: `Webhook Error: ${err.message}` };
   }
 
+  // Handle the checkout session completed event
   if (stripeEvent.type === "checkout.session.completed") {
     const session = stripeEvent.data.object;
 
-    // Update user's subscription status in your database
+    // Process the subscription update
+    console.log("Checkout session completed:", session);
     await updateSubscriptionStatus(session.metadata.userId, session.subscription);
   }
 
@@ -45,9 +48,9 @@ exports.handler = async function (event, context) {
 };
 
 const updateSubscriptionStatus = async (userId, subscriptionId) => {
-  // Replace this with your database update logic
-  console.log(`Updating subscription for user ${userId} with subscription ${subscriptionId}`);
-  // Example with Supabase:
+  console.log(`Updating subscription for user: ${userId}`);
+  // Add your database update logic here
+  // Example for Supabase:
   const { data, error } = await supabase
     .from("subscriptions")
     .upsert({
