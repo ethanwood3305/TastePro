@@ -1,8 +1,13 @@
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
+// Import Supabase client
+const { createClient } = require("@supabase/supabase-js");
+
+// Initialize Supabase client
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
 exports.handler = async function (event) {
-  const sig = event.headers["stripe-signature"];
   const headers = {
     "Access-Control-Allow-Origin": "*", // Adjust as needed
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -17,12 +22,12 @@ exports.handler = async function (event) {
     };
   }
 
+  const sig = event.headers["stripe-signature"];
   let stripeEvent;
 
   try {
-    // Pass the raw body for Stripe signature verification
     stripeEvent = stripe.webhooks.constructEvent(
-      event.body, // RAW body
+      event.body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
@@ -50,7 +55,6 @@ exports.handler = async function (event) {
 const updateSubscriptionStatus = async (userId, subscriptionId) => {
   console.log(`Updating subscription for user: ${userId}`);
   // Add your database update logic here
-  // Example for Supabase:
   const { data, error } = await supabase
     .from("subscriptions")
     .upsert({
