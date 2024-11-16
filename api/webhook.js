@@ -1,64 +1,64 @@
-// api/webhook.js
-import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
-import { buffer } from "micro";
-
+const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-export const config = {
-  api: {
-    bodyParser: false, // Disables default body parser for raw body handling
-  },
+exports.handler = async function (event, context) {
+  const headers = {
+    "Access-Control-Allow-Origin": "*", // Adjust for your frontend URL
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Stripe-Signature",
+  };
+
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers,
+      body: "OK",
+    };
+  }
+
+  const sig = event.headers["stripe-signature"];
+  let stripeEvent;
+
+  try {
+    stripeEvent = stripe.webhooks.constructEvent(
+      event.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error("Webhook signature verification failed:", err.message);
+    return { statusCode: 400, body: `Webhook Error: ${err.message}` };
+  }
+
+  if (stripeEvent.type === "checkout.session.completed") {
+    const session = stripeEvent.data.object;
+
+    // Update user's subscription status in your database
+    await updateSubscriptionStatus(session.metadata.userId, session.subscription);
+  }
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({ received: true }),
+  };
 };
 
-export default async function handler(req, res) {
-  if (req.method === "POST") {
-    const sig = req.headers["stripe-signature"];
-    let event;
-
-    try {
-      const buf = await buffer(req); // Buffer the request for Stripe signature verification
-      event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    } catch (err) {
-      console.error("Webhook signature verification failed.", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    switch (event.type) {
-      case "checkout.session.completed":
-        const session = event.data.object;
-        await handleSubscription(session);
-        break;
-      // Add more Stripe events here as needed
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-    }
-
-    res.json({ received: true });
-  } else {
-    res.setHeader("Allow", ["POST"]);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
-  }
-}
-
-async function handleSubscription(session) {
-  const { customer, subscription, metadata } = session;
-  const userId = metadata.userId;
-
+const updateSubscriptionStatus = async (userId, subscriptionId) => {
+  // Replace this with your database update logic
+  console.log(`Updating subscription for user ${userId} with subscription ${subscriptionId}`);
+  // Example with Supabase:
   const { data, error } = await supabase
     .from("subscriptions")
     .upsert({
       user_id: userId,
-      stripe_customer_id: customer,
-      stripe_subscription_id: subscription,
+      stripe_subscription_id: subscriptionId,
       status: "active",
     });
 
   if (error) {
-    console.error("Error updating subscription in Supabase:", error.message);
+    console.error("Error updating subscription:", error);
   } else {
-    console.log("Subscription updated in Supabase:", data);
+    console.log("Subscription updated successfully:", data);
   }
-}
+};
